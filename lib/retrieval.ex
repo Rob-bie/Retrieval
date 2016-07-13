@@ -34,6 +34,10 @@ defmodule Retrieval do
     insert(%Trie{}, binary)
   end
 
+  def new(binary_and_payload) when is_tuple(binary_and_payload) do
+    insert(%Trie{}, binary_and_payload)
+  end
+
   @doc """
   Inserts a binary or list of binaries into an existing trie.
 
@@ -53,6 +57,21 @@ defmodule Retrieval do
 
   def insert(%Trie{trie: trie}, binary) when is_binary(binary) do
     %Trie{trie: _insert(trie, binary)}
+  end
+
+  def insert(%Trie{trie: trie}, binary_and_payload) when is_tuple(binary_and_payload) do
+    %Trie{trie: _insert(trie, binary_and_payload)}
+  end
+
+  defp _insert(trie, {<<next, rest :: binary>>, payload}) do
+    case Map.has_key?(trie, next) do
+      true  -> Map.put(trie, next, _insert(trie[next], {rest, payload}))
+      false -> Map.put(trie, next, _insert(%{}, {rest, payload}))
+    end
+  end
+
+  defp _insert(trie, {<<>>, payload}) do
+    Map.put(trie, :mark, payload)
   end
 
   defp _insert(trie, <<next, rest :: binary>>) do
@@ -90,7 +109,7 @@ defmodule Retrieval do
     end
   end
 
-  defp _contains?(%{mark: :mark}, <<>>) do
+  defp _contains?(%{mark: _}, <<>>) do
     true
   end
 
@@ -128,6 +147,7 @@ defmodule Retrieval do
   defp _prefix(trie, <<>>, acc) do
     Enum.flat_map(trie, fn
       {:mark, :mark} -> [acc]
+      {:mark, payload} -> [{acc, payload}]
       {ch, sub_trie} -> _prefix(sub_trie, <<>>, acc <> <<ch>>)
     end)
   end
@@ -188,7 +208,7 @@ defmodule Retrieval do
 
   defp _pattern(trie, capture_map, [:wildcard|rest], acc) do
     Enum.flat_map(trie, fn
-      {:mark, :mark} -> []
+      {:mark, _} -> []
       {ch, sub_trie} -> _pattern(sub_trie, capture_map, rest, acc <> <<ch>>)
     end)
   end
@@ -196,7 +216,7 @@ defmodule Retrieval do
   defp _pattern(trie, capture_map, [{:exclusion, exclusions}|rest], acc) do
     pruned_trie = Enum.filter(trie, fn({k, _v}) -> !(Map.has_key?(exclusions, k)) end)
     Enum.flat_map(pruned_trie, fn
-      {:mark, :mark} -> []
+      {:mark, _} -> []
       {ch, sub_trie} -> _pattern(sub_trie, capture_map, rest, acc <> <<ch>>)
     end)
   end
@@ -204,7 +224,7 @@ defmodule Retrieval do
   defp _pattern(trie, capture_map, [{:inclusion, inclusions}|rest], acc) do
     pruned_trie = Enum.filter(trie, fn({k, _v}) -> Map.has_key?(inclusions, k) end)
     Enum.flat_map(pruned_trie, fn
-      {:mark, :mark} -> []
+      {:mark, _} -> []
       {ch, sub_trie} -> _pattern(sub_trie, capture_map, rest, acc <> <<ch>>)
     end)
   end
@@ -219,7 +239,7 @@ defmodule Retrieval do
         end
       false ->
         Enum.flat_map(trie, fn
-          {:mark, :mark} -> []
+          {:mark, _} -> []
           {ch, sub_trie} ->
             capture_map = Map.put(capture_map, name, ch)
             _pattern(sub_trie, capture_map, rest, acc <> <<ch>>)
@@ -238,7 +258,7 @@ defmodule Retrieval do
       false ->
         pruned_trie = Enum.filter(trie, fn({k, _v}) -> !(Map.has_key?(exclusions, k)) end)
         Enum.flat_map(pruned_trie, fn
-          {:mark, :mark} -> []
+          {:mark, _} -> []
           {ch, sub_trie} ->
             capture_map = Map.put(capture_map, name, ch)
             _pattern(sub_trie, capture_map, rest, acc <> <<ch>>)
@@ -257,7 +277,7 @@ defmodule Retrieval do
       false ->
         pruned_trie = Enum.filter(trie, fn({k, _v}) -> Map.has_key?(inclusions, k) end)
         Enum.flat_map(pruned_trie, fn
-          {:mark, :mark} -> []
+          {:mark, _} -> []
           {ch, sub_trie} ->
             capture_map = Map.put(capture_map, name, ch)
             _pattern(sub_trie, capture_map, rest, acc <> <<ch>>)
@@ -267,7 +287,10 @@ defmodule Retrieval do
 
   defp _pattern(trie, _capture_map, [], acc) do
     case Map.has_key?(trie, :mark) do
-      true  -> [acc]
+      true  -> case Map.get(trie, :mark) do
+        :mark -> [acc]
+        payload -> [{acc, payload}]
+      end
       false -> []
     end
   end
