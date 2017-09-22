@@ -4,7 +4,8 @@ defmodule RetrievalTest do
 
   @test_data ~w/apple apply ape bed between betray cat cold hot
                 warm winter maze smash crush under above people
-                negative poison place out divide zebra extended/
+                negative poison place out divide zebra extended
+		dad daddy dadoobidoo/
 
   @test_trie Retrieval.new(@test_data)
 
@@ -23,6 +24,12 @@ defmodule RetrievalTest do
     assert Retrieval.prefix(@test_trie, "app") == ["apple", "apply"]
     assert Retrieval.prefix(@test_trie, "n")   == ["negative"]
     assert Retrieval.prefix(@test_trie, "abc") == []
+  end
+
+  test "prefix!" do
+    assert Retrieval.prefix!(@test_trie, "da") == {"dad", ["daddy", "dadoobidoo", "dad"]}
+    assert Retrieval.prefix!(@test_trie, "winter") == {"winter", ["winter"]}
+    assert Retrieval.prefix!(@test_trie, "abc") == {nil, []}
   end
 
   test "pattern errors" do
