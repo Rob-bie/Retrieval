@@ -55,7 +55,7 @@ defmodule Retrieval do
     %Trie{trie: _insert(trie, binary)}
   end
 
-  defp _insert(trie, <<next, rest :: binary>>) do
+  defp _insert(trie, <<next :: utf8, rest :: binary>>) do
     case Map.has_key?(trie, next) do
       true  -> Map.put(trie, next, _insert(trie[next], rest))
       false -> Map.put(trie, next, _insert(%{}, rest))
@@ -83,7 +83,7 @@ defmodule Retrieval do
     _contains?(trie, binary)
   end
 
-  defp _contains?(trie, <<next, rest :: binary>>) do
+  defp _contains?(trie, <<next :: utf8, rest :: binary>>) do
     case Map.has_key?(trie, next) do
       true  -> _contains?(trie[next], rest)
       false -> false
@@ -115,7 +115,7 @@ defmodule Retrieval do
     _prefix(trie, binary, binary)
   end
 
-  defp _prefix(trie, <<next, rest :: binary>>, acc) do
+  defp _prefix(trie, <<next :: utf8, rest :: binary>>, acc) do
     case Map.has_key?(trie, next) do
       true  -> _prefix(trie[next], rest, acc)
       false -> []
@@ -128,7 +128,7 @@ defmodule Retrieval do
   defp _prefix(trie, <<>>, acc) do
     Enum.flat_map(trie, fn
       {:mark, :mark} -> [acc]
-      {ch, sub_trie} -> _prefix(sub_trie, <<>>, acc <> <<ch>>)
+      {ch, sub_trie} -> _prefix(sub_trie, <<>>, acc <> <<ch :: utf8>>)
     end)
   end
 
@@ -181,7 +181,7 @@ defmodule Retrieval do
 
   defp _pattern(trie, capture_map, [{:character, ch}|rest], acc) do
     case Map.has_key?(trie, ch) do
-      true  -> _pattern(trie[ch], capture_map, rest, acc <> <<ch>>)
+      true  -> _pattern(trie[ch], capture_map, rest, acc <> <<ch :: utf8>>)
       false -> []
     end
   end
@@ -189,7 +189,7 @@ defmodule Retrieval do
   defp _pattern(trie, capture_map, [:wildcard|rest], acc) do
     Enum.flat_map(trie, fn
       {:mark, :mark} -> []
-      {ch, sub_trie} -> _pattern(sub_trie, capture_map, rest, acc <> <<ch>>)
+      {ch, sub_trie} -> _pattern(sub_trie, capture_map, rest, acc <> <<ch :: utf8>>)
     end)
   end
 
@@ -197,7 +197,7 @@ defmodule Retrieval do
     pruned_trie = Enum.filter(trie, fn({k, _v}) -> !(Map.has_key?(exclusions, k)) end)
     Enum.flat_map(pruned_trie, fn
       {:mark, :mark} -> []
-      {ch, sub_trie} -> _pattern(sub_trie, capture_map, rest, acc <> <<ch>>)
+      {ch, sub_trie} -> _pattern(sub_trie, capture_map, rest, acc <> <<ch :: utf8>>)
     end)
   end
 
@@ -205,7 +205,7 @@ defmodule Retrieval do
     pruned_trie = Enum.filter(trie, fn({k, _v}) -> Map.has_key?(inclusions, k) end)
     Enum.flat_map(pruned_trie, fn
       {:mark, :mark} -> []
-      {ch, sub_trie} -> _pattern(sub_trie, capture_map, rest, acc <> <<ch>>)
+      {ch, sub_trie} -> _pattern(sub_trie, capture_map, rest, acc <> <<ch :: utf8>>)
     end)
   end
 
@@ -214,7 +214,7 @@ defmodule Retrieval do
       true  ->
         match = capture_map[name]
         case Map.has_key?(trie, match) do
-          true  -> _pattern(trie[match], capture_map, rest, acc <> <<match>>)
+          true  -> _pattern(trie[match], capture_map, rest, acc <> <<match :: utf8>>)
           false -> []
         end
       false ->
@@ -222,7 +222,7 @@ defmodule Retrieval do
           {:mark, :mark} -> []
           {ch, sub_trie} ->
             capture_map = Map.put(capture_map, name, ch)
-            _pattern(sub_trie, capture_map, rest, acc <> <<ch>>)
+            _pattern(sub_trie, capture_map, rest, acc <> <<ch :: utf8>>)
         end)
     end
   end
@@ -232,7 +232,7 @@ defmodule Retrieval do
       true  ->
         match = capture_map[name]
         case Map.has_key?(trie, match) do
-          true  -> _pattern(trie[match], capture_map, rest, acc <> <<match>>)
+          true  -> _pattern(trie[match], capture_map, rest, acc <> <<match :: utf8>>)
           false -> []
         end
       false ->
@@ -241,7 +241,7 @@ defmodule Retrieval do
           {:mark, :mark} -> []
           {ch, sub_trie} ->
             capture_map = Map.put(capture_map, name, ch)
-            _pattern(sub_trie, capture_map, rest, acc <> <<ch>>)
+            _pattern(sub_trie, capture_map, rest, acc <> <<ch :: utf8>>)
         end)
     end
   end
@@ -251,7 +251,7 @@ defmodule Retrieval do
       true  ->
         match = capture_map[name]
         case Map.has_key?(trie, match) do
-          true  -> _pattern(trie[match], capture_map, rest, acc <> <<match>>)
+          true  -> _pattern(trie[match], capture_map, rest, acc <> <<match :: utf8>>)
           false -> []
         end
       false ->
@@ -260,7 +260,7 @@ defmodule Retrieval do
           {:mark, :mark} -> []
           {ch, sub_trie} ->
             capture_map = Map.put(capture_map, name, ch)
-            _pattern(sub_trie, capture_map, rest, acc <> <<ch>>)
+            _pattern(sub_trie, capture_map, rest, acc <> <<ch :: utf8>>)
         end)
     end
   end
