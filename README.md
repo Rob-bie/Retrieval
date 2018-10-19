@@ -44,6 +44,24 @@ Retrieval.new("example")
 
 Retrieval.new(~w/this is an example/)
 %Retrieval.Trie{trie: ...}
+
+tree = Retrieval.new(~w/apple apply ape ample/)
+
+%Retrieval.Trie{
+  trie: %{
+    97 => %{
+      109 => %{112 => %{108 => %{101 => %{mark: :mark}}}},
+      112 => %{
+        101 => %{mark: :mark},
+        112 => %{108 => %{101 => %{mark: :mark}, 121 => %{mark: :mark}}}
+      }
+    }
+  }
+}
+
+Retrieval.flat(tree)
+
+["ample", "ape", "apple", "apply"]
 ```
 
 For the rest of our examples we are going to assume we have created the following trie:

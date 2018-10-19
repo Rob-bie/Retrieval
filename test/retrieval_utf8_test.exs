@@ -2,6 +2,8 @@ defmodule RetrievalUTF8Test do
   use ExUnit.Case
   doctest Retrieval
 
+  require Logger
+
   @test_data ~w/аппле аппли апе бет бетвеен бетраи кат колд хот
                 варм винтер мазе смасш срусш ундер абове пеопле
                 негативе поисон пласе оут дивиде зебра ехтендед extended/
@@ -39,6 +41,18 @@ defmodule RetrievalUTF8Test do
     assert Retrieval.pattern(@test_trie, "[ко]**") == ["кат", "оут"]
     assert Retrieval.pattern(@test_trie, "{1[^окйш]}х[тнм]{1}*{2}{1}{2}") == ["ехтендед"]
     assert Retrieval.pattern(@test_trie, "{1[^okjh]}x[tnm]{1}*{2}{1}{2}") == ["extended"]
+  end
+
+  test "flat" do
+    tree = Retrieval.new(~w/apple apply ape ample/)
+    result = Retrieval.flat(tree)
+
+    Logger.debug "tree=#{inspect tree}"
+    Logger.debug "result=#{inspect result}"
+    assert "apple" in result
+    assert "apply" in result
+    assert "ape"   in result
+    assert "ample" in result
   end
 
 end

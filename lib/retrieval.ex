@@ -99,6 +99,32 @@ defmodule Retrieval do
   end
 
   @doc """
+  Returns flat array of thee.
+
+  ## Examples
+
+        Retrieval.new(~w/apple apply ape ample/) |> Retrieval.flat()
+        ["apple", "apply", "ape", "ample"]
+
+  """
+  def flat(%Trie{trie: trie}) do
+    _flat(trie, <<>>)
+    |> List.flatten()
+  end
+
+  defp _flat(trie, path) do
+    trie
+    |> Map.keys()
+    |> Enum.map(fn(key) ->
+      case key do
+        :mark -> path
+        key -> _flat(trie[key], path <> << key :: utf8 >>)
+      end
+    end)
+  end
+
+
+  @doc """
   Collects all binaries that begin with a given prefix.
 
   ## Examples
