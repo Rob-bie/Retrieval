@@ -1,8 +1,9 @@
 defmodule Retrieval do
 
   alias Retrieval.Trie
+  alias Retrieval.CountTrie
   alias Retrieval.PatternParser
-
+  require Logger
   @moduledoc """
   Provides an interface for creating and collecting data from the trie data structure.
   """
@@ -24,15 +25,38 @@ defmodule Retrieval do
 
   """
 
-  def new, do: %Trie{}
+  def new(), do: %Trie{}
 
   def new(binaries) when is_list(binaries) do
-    insert(%Trie{}, binaries)
+    cond do
+      binaries[:with_counter] == true -> %CountTrie{}
+      binaries[:with_counter] == false -> %Trie{}
+      true -> insert(%Trie{}, binaries)
+    end
   end
 
   def new(binary) when is_binary(binary) do
     insert(%Trie{}, binary)
   end
+
+  # with options
+  def new(binaries, options) when is_list(binaries) and is_list(options)  do
+    cond do
+      options[:with_counter] == true -> insert_with_count(%CountTrie{}, binaries)
+      options[:with_counter] == false -> insert(%Trie{}, binaries)
+      true -> insert(%Trie{}, binaries)
+    end
+  end
+
+  def new(binary, options) when is_binary(binary) and is_list(options)  do
+    cond do
+      options[:with_counter] == true -> insert_with_count(%CountTrie{}, binary)
+      options[:with_counter] == false -> insert(%Trie{}, binary)
+      true -> insert(%Trie{}, binary)
+    end
+  end
+
+
 
   @doc """
   Inserts a binary or list of binaries into an existing trie.
@@ -55,6 +79,14 @@ defmodule Retrieval do
     %Trie{trie: _insert(trie, binary)}
   end
 
+  def insert_with_count(%CountTrie{trie: trie}, binaries) when is_list(binaries) do
+    %CountTrie{trie: Enum.reduce(binaries, trie, &_insert_with_count(&2, &1))}
+  end
+
+  def insert_with_count(%CountTrie{trie: trie}, binary) when is_binary(binary) do
+    %CountTrie{trie: _insert_with_count(trie, binary)}
+  end
+
   defp _insert(trie, <<next :: utf8, rest :: binary>>) do
     case Map.has_key?(trie, next) do
       true  -> Map.put(trie, next, _insert(trie[next], rest))
@@ -64,6 +96,22 @@ defmodule Retrieval do
 
   defp _insert(trie, <<>>) do
     Map.put(trie, :mark, :mark)
+  end
+
+  defp _insert_with_count(trie, <<next :: utf8, rest :: binary>>) do
+    case Map.has_key?(trie, next) do
+      true  ->
+        Map.put(trie, next, _insert_with_count(trie[next], rest))
+        |> Map.update(:count, 1, &(&1 + 1))
+      false ->
+        Map.put(trie, next, _insert_with_count(%{}, rest))
+        |> Map.update(:count, 1, &(&1 + 1))
+    end
+  end
+
+  defp _insert_with_count(trie, <<>>) do
+    Map.put(trie, :mark, :mark)
+    |> Map.update(:count, 1, &(&1 + 1))
   end
 
   @doc """
@@ -80,6 +128,9 @@ defmodule Retrieval do
   """
 
   def contains?(%Trie{trie: trie}, binary) when is_binary(binary) do
+    _contains?(trie, binary)
+  end
+  def contains?(%CountTrie{trie: trie}, binary) when is_binary(binary) do
     _contains?(trie, binary)
   end
 
@@ -111,6 +162,10 @@ defmodule Retrieval do
     _flat(trie, <<>>)
     |> List.flatten()
   end
+  def flat(%CountTrie{trie: trie}) do
+    _flat_with_count(trie, <<>>)
+    |> List.flatten()
+  end
 
   defp _flat(trie, path) do
     trie
@@ -119,6 +174,18 @@ defmodule Retrieval do
       case key do
         :mark -> path
         key -> _flat(trie[key], path <> << key :: utf8 >>)
+      end
+    end)
+  end
+
+  defp _flat_with_count(trie, path) do
+    trie
+    |> Map.keys()
+    |> Enum.map(fn(key) ->
+      case key do
+        :mark -> path
+        :count -> []
+        key -> _flat_with_count(trie[key], path <> << key :: utf8 >>)
       end
     end)
   end
@@ -140,6 +207,9 @@ defmodule Retrieval do
   def prefix(%Trie{trie: trie}, binary) when is_binary(binary) do
     _prefix(trie, binary, binary)
   end
+  def prefix(%CountTrie{trie: trie}, binary) when is_binary(binary) do
+    _prefix_with_count(trie, binary, binary)
+  end
 
   defp _prefix(trie, <<next :: utf8, rest :: binary>>, acc) do
     case Map.has_key?(trie, next) do
@@ -157,6 +227,63 @@ defmodule Retrieval do
       {ch, sub_trie} -> _prefix(sub_trie, <<>>, acc <> <<ch :: utf8>>)
     end)
   end
+
+  defp _prefix_with_count(trie, <<next :: utf8, rest :: binary>>, acc) do
+    case Map.has_key?(trie, next) do
+      true  -> _prefix_with_count(trie[next], rest, acc)
+      false -> []
+    end
+  end
+
+  defp _prefix_with_count(trie, <<>>, acc) do
+    Enum.flat_map(trie, fn
+      {:mark, :mark} -> [acc]
+      {:count, _} -> []
+      {ch, sub_trie} -> _prefix_with_count(sub_trie, <<>>, acc <> <<ch :: utf8>>)
+    end)
+  end
+
+  @doc """
+  Returns the number of words in the tree with this prefix.
+  INFO! Work only with CountTrie.
+
+  ## Examples
+
+        Retrieval.new(~w/apple apply ape ample/, with_counter: true)
+        |> Retrieval.prefix_count("ap")
+        3
+
+        Retrieval.new(~w/apple apply ape ample/, with_counter: true)
+        |> Retrieval.prefix_count("am")
+        1
+
+        Retrieval.new(~w/apple apply ape ample/, with_counter: true)
+        |> Retrieval.prefix_count("")
+        4
+
+        Retrieval.new(~w/apple apply ape ample/, with_counter: true)
+        |> Retrieval.prefix_count("xxx")
+        0
+
+  """
+
+
+  def prefix_count(%CountTrie{trie: trie}, binary) when is_binary(binary) do
+    _prefix_count(trie, binary, binary)
+  end
+
+  defp _prefix_count(trie, <<next :: utf8, rest :: binary>>, acc) do
+    case Map.has_key?(trie, next) do
+      true  -> _prefix_count(trie[next], rest, acc)
+      false -> 0
+    end
+  end
+
+  defp _prefix_count(trie, <<>>, _acc) do
+    trie.count
+  end
+
+
 
   @doc """
   Collects all binaries match a given pattern. Returns either a list of matches
@@ -197,6 +324,9 @@ defmodule Retrieval do
   def pattern(%Trie{trie: trie}, pattern) when is_binary(pattern) do
     _pattern(trie, %{}, pattern, <<>>, :parse)
   end
+  def pattern(%CountTrie{trie: trie}, pattern) when is_binary(pattern) do
+    _pattern(trie, %{}, pattern, <<>>, :parse)
+  end
 
   defp _pattern(trie, capture_map, pattern, acc, :parse) do
     case PatternParser.parse(pattern) do
@@ -215,6 +345,7 @@ defmodule Retrieval do
   defp _pattern(trie, capture_map, [:wildcard|rest], acc) do
     Enum.flat_map(trie, fn
       {:mark, :mark} -> []
+      {:count, _} -> []    # for CountTree
       {ch, sub_trie} -> _pattern(sub_trie, capture_map, rest, acc <> <<ch :: utf8>>)
     end)
   end
@@ -223,6 +354,7 @@ defmodule Retrieval do
     pruned_trie = Enum.filter(trie, fn({k, _v}) -> !(Map.has_key?(exclusions, k)) end)
     Enum.flat_map(pruned_trie, fn
       {:mark, :mark} -> []
+      {:count, _} -> []    # for CountTree
       {ch, sub_trie} -> _pattern(sub_trie, capture_map, rest, acc <> <<ch :: utf8>>)
     end)
   end
@@ -231,6 +363,7 @@ defmodule Retrieval do
     pruned_trie = Enum.filter(trie, fn({k, _v}) -> Map.has_key?(inclusions, k) end)
     Enum.flat_map(pruned_trie, fn
       {:mark, :mark} -> []
+      {:count, _} -> []    # for CountTree
       {ch, sub_trie} -> _pattern(sub_trie, capture_map, rest, acc <> <<ch :: utf8>>)
     end)
   end
@@ -265,6 +398,7 @@ defmodule Retrieval do
         pruned_trie = Enum.filter(trie, fn({k, _v}) -> !(Map.has_key?(exclusions, k)) end)
         Enum.flat_map(pruned_trie, fn
           {:mark, :mark} -> []
+          {:count, _} -> []    # for CountTree
           {ch, sub_trie} ->
             capture_map = Map.put(capture_map, name, ch)
             _pattern(sub_trie, capture_map, rest, acc <> <<ch :: utf8>>)
@@ -284,6 +418,7 @@ defmodule Retrieval do
         pruned_trie = Enum.filter(trie, fn({k, _v}) -> Map.has_key?(inclusions, k) end)
         Enum.flat_map(pruned_trie, fn
           {:mark, :mark} -> []
+          {:count, _} -> []    # for CountTree
           {ch, sub_trie} ->
             capture_map = Map.put(capture_map, name, ch)
             _pattern(sub_trie, capture_map, rest, acc <> <<ch :: utf8>>)

@@ -47,8 +47,6 @@ defmodule RetrievalUTF8Test do
     tree = Retrieval.new(~w/apple apply ape ample/)
     result = Retrieval.flat(tree)
 
-    Logger.debug "tree=#{inspect tree}"
-    Logger.debug "result=#{inspect result}"
     assert "apple" in result
     assert "apply" in result
     assert "ape"   in result
