@@ -116,6 +116,31 @@ Retrieval.prefix(trie, "th")
 []
 ```
 
+##### Prefix count
+
+Returns the number of words in the tree with this prefix.
+
+INFO! Work only with CountTrie.
+
+```elixir
+Retrieval.new(~w/apple apply ape ample/, with_counter: true)
+|> Retrieval.prefix_count("ap")
+3
+
+Retrieval.new(~w/apple apply ape ample/, with_counter: true)
+|> Retrieval.prefix_count("am")
+1
+
+Retrieval.new(~w/apple apply ape ample/, with_counter: true)
+|> Retrieval.prefix_count("")
+4
+
+Retrieval.new(~w/apple apply ape ample/, with_counter: true)
+|> Retrieval.prefix_count("xxx")
+0
+```
+
+
 ##### Pattern lookup
 
 Retrieval supports a variety of patterns that can be arbitrarily combined. Erroneous patterns
