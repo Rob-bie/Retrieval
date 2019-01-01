@@ -145,8 +145,8 @@ Retrieval.new(~w/apple apply ape ample/, with_counter: true)
 Use for generate ID for the unical names. As example city table.
 
 ```elixir
-citys = Retrieval.new(with_id: true) \
-|>  Retrieval.insert("Rybinsk", 1) \
+citys = Retrieval.new(with_id: true)
+|>  Retrieval.insert("Rybinsk", 1)
 |> Retrieval.insert("Moscow", 2)
 
 Retrieval.contains?(citys, "Moscow")
