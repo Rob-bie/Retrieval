@@ -3,13 +3,13 @@ defmodule Retrieval.Mixfile do
 
   def project do
     [app: :retrieval,
-     version: "0.9.1",
+     version: "0.9.3",
      elixir: "~> 1.2",
-     description: description,
-     package: package,
+     description: description(),
+     package: package(),
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
-     deps: deps]
+     deps: deps()]
   end
 
   def application do

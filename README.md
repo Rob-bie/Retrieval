@@ -44,6 +44,24 @@ Retrieval.new("example")
 
 Retrieval.new(~w/this is an example/)
 %Retrieval.Trie{trie: ...}
+
+tree = Retrieval.new(~w/apple apply ape ample/)
+
+%Retrieval.Trie{
+  trie: %{
+    97 => %{
+      109 => %{112 => %{108 => %{101 => %{mark: :mark}}}},
+      112 => %{
+        101 => %{mark: :mark},
+        112 => %{108 => %{101 => %{mark: :mark}, 121 => %{mark: :mark}}}
+      }
+    }
+  }
+}
+
+Retrieval.flat(tree)
+
+["ample", "ape", "apple", "apply"]
 ```
 
 For the rest of our examples we are going to assume we have created the following trie:
@@ -97,6 +115,47 @@ Retrieval.prefix(trie, "be")
 Retrieval.prefix(trie, "th")
 []
 ```
+
+##### Prefix count
+
+Returns the number of words in the tree with this prefix.
+
+INFO! Work only with CountTrie.
+
+```elixir
+Retrieval.new(~w/apple apply ape ample/, with_counter: true)
+|> Retrieval.prefix_count("ap")
+3
+
+Retrieval.new(~w/apple apply ape ample/, with_counter: true)
+|> Retrieval.prefix_count("am")
+1
+
+Retrieval.new(~w/apple apply ape ample/, with_counter: true)
+|> Retrieval.prefix_count("")
+4
+
+Retrieval.new(~w/apple apply ape ample/, with_counter: true)
+|> Retrieval.prefix_count("xxx")
+0
+```
+
+##### ID Trie
+
+Use for generate ID for the unical names. As example city table.
+
+```elixir
+citys = Retrieval.new(with_id: true)
+|>  Retrieval.insert("Rybinsk", 1)
+|> Retrieval.insert("Moscow", 2)
+
+Retrieval.contains?(citys, "Moscow")
+2
+
+Retrieval.contains?(citys, "Paris")
+false
+```
+
 
 ##### Pattern lookup
 
