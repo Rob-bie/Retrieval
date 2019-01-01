@@ -2,6 +2,7 @@ defmodule Retrieval do
 
   alias Retrieval.Trie
   alias Retrieval.CountTrie
+  alias Retrieval.IdTrie
   alias Retrieval.PatternParser
   require Logger
   @moduledoc """
@@ -30,6 +31,7 @@ defmodule Retrieval do
   def new(binaries) when is_list(binaries) do
     cond do
       binaries[:with_counter] == true -> %CountTrie{}
+      binaries[:with_id] == true -> %IdTrie{}
       binaries[:with_counter] == false -> %Trie{}
       true -> insert(%Trie{}, binaries)
     end
@@ -43,6 +45,7 @@ defmodule Retrieval do
   def new(binaries, options) when is_list(binaries) and is_list(options)  do
     cond do
       options[:with_counter] == true -> insert_with_count(%CountTrie{}, binaries)
+      options[:with_id] == true -> insert_with_count(%IdTrie{}, binaries)
       options[:with_counter] == false -> insert(%Trie{}, binaries)
       true -> insert(%Trie{}, binaries)
     end
@@ -51,6 +54,7 @@ defmodule Retrieval do
   def new(binary, options) when is_binary(binary) and is_list(options)  do
     cond do
       options[:with_counter] == true -> insert_with_count(%CountTrie{}, binary)
+      options[:with_id] == true -> insert_with_count(%IdTrie{}, binary)
       options[:with_counter] == false -> insert(%Trie{}, binary)
       true -> insert(%Trie{}, binary)
     end
@@ -79,6 +83,15 @@ defmodule Retrieval do
     %Trie{trie: _insert(trie, binary)}
   end
 
+  def insert(%IdTrie{trie: trie}, binaries, id) when is_list(binaries) do
+    %IdTrie{trie: Enum.reduce(binaries, trie, &_insert_id(&2, &1, id))}
+  end
+
+  def insert(%IdTrie{trie: trie}, binary, id) when is_binary(binary) do
+    %IdTrie{trie: _insert_id(trie, binary, id)}
+  end
+
+
   def insert_with_count(%CountTrie{trie: trie}, binaries) when is_list(binaries) do
     %CountTrie{trie: Enum.reduce(binaries, trie, &_insert_with_count(&2, &1))}
   end
@@ -97,6 +110,18 @@ defmodule Retrieval do
   defp _insert(trie, <<>>) do
     Map.put(trie, :mark, :mark)
   end
+
+  defp _insert_id(trie, <<next :: utf8, rest :: binary>>, id) do
+    case Map.has_key?(trie, next) do
+      true  -> Map.put(trie, next, _insert_id(trie[next], rest, id))
+      false -> Map.put(trie, next, _insert_id(%{}, rest, id))
+    end
+  end
+
+  defp _insert_id(trie, <<>>, id) do
+    Map.put(trie, :mark, id)
+  end
+
 
   defp _insert_with_count(trie, <<next :: utf8, rest :: binary>>) do
     case Map.has_key?(trie, next) do
@@ -133,6 +158,9 @@ defmodule Retrieval do
   def contains?(%CountTrie{trie: trie}, binary) when is_binary(binary) do
     _contains?(trie, binary)
   end
+  def contains?(%IdTrie{trie: trie}, binary) when is_binary(binary) do
+    _contains_id?(trie, binary)
+  end
 
   defp _contains?(trie, <<next :: utf8, rest :: binary>>) do
     case Map.has_key?(trie, next) do
@@ -146,6 +174,21 @@ defmodule Retrieval do
   end
 
   defp _contains?(_trie, <<>>) do
+    false
+  end
+
+  defp _contains_id?(trie, <<next :: utf8, rest :: binary>>) do
+    case Map.has_key?(trie, next) do
+      true  -> _contains_id?(trie[next], rest)
+      false -> false
+    end
+  end
+
+  defp _contains_id?(%{mark: id}, <<>>) do
+    id
+  end
+
+  defp _contains_id?(_trie, <<>>) do
     false
   end
 
